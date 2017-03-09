@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:os-core="http://www.openspaces.org/schema/core"
+       xmlns:os-events="http://www.openspaces.org/schema/events"
+       xmlns:os-remoting="http://www.openspaces.org/schema/remoting"
+        xmlns:blob-store="http://www.openspaces.org/schema/rocksdb-blob-store"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.1.xsd
+       http://www.openspaces.org/schema/core http://www.openspaces.org/schema/12.0/core/openspaces-core.xsd
+       http://www.openspaces.org/schema/rocksdb-blob-store http://www.openspaces.org/schema/12.0/rocksdb-blob-store/openspaces-rocksdb-blobstore.xsd
+       
+       http://www.openspaces.org/schema/events http://www.openspaces.org/schema/12.0/events/openspaces-events.xsd
+       http://www.openspaces.org/schema/remoting http://www.openspaces.org/schema/12.0/remoting/openspaces-remoting.xsd">
+
+   <bean id="propertiesConfigurer" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer"/>
+
+   <os-core:giga-space-context/>
+
+<os-core:annotation-support/>
+   
+    
+  
+     <bean id="dbOptions" class="com.gigaspaces.blobstore.rocksdb.config.XAPDBOptions">
+        <property name="allowMmapReads"><value>false</value></property>
+        <property name="maxBackgroundFlushes"><value>40</value></property>
+        <property name="maxBackgroundCompactions"><value>20</value></property>
+        <property name="allowOsBuffer"><value>false</value></property>
+    </bean>
+   
+    <bean id="data-column-family-options" class="com.gigaspaces.blobstore.rocksdb.config.XAPColumnFamilyOptions">
+        <property name="compressionPerLevel">
+            <list/>
+        </property>
+        <!--  Memtable size, 16MB per Memtable -->
+        <property name="writeBufferSize"><value>134217728</value></property> 
+        <property name="maxBytesForLevelBase"><value>134217728</value></property>
+         <!-- Memtables per database instance --> 
+        <property name="maxWriteBufferNumber"><value>2</value></property>
+        
+        <!-- When to flush, after 1 memtable is full -->
+        <property name="minWriteBufferNumberToMerge"><value>1</value></property> 
+        <property name="targetFileSizeBase"><value>134217728</value></property>
+        <property name="levelZeroSlowdownWritesTrigger"><value>56</value></property>  <!-- L0 file mmaped, L1 on disk --> <!--  L1 is not compressed, for performance purposes -->
+        <property name="levelZeroStopWritesTrigger"><value>56</value></property>
+        
+        <!-- Number of levels L0-L6 -->
+        <property name="numLevels"><value>6</value></property> 
+        
+    </bean>
+    
+    
+    
+
+	<bean id="attributeStoreHandler" class="com.gigaspaces.attribute_store.PropertiesFileAttributeStore">
+        <constructor-arg name="path" value="/mnt/mountpoint/lastprimary.properties"/>
+    </bean>
+    
+    <os-core:embedded-space id="space" name="space">
+        <os-core:blob-store-data-policy blob-store-handler="myBlobStore" persistent="true" cache-entries-percentage="0"  />
+        <os-core:attribute-store store-handler="attributeStoreHandler"/>
+    </os-core:embedded-space>
+  
+    
+      
+    <blob-store:rocksdb-blob-store id="myBlobStore" central-storage="true" paths="[/tmp/db1,/tmp/db2]"
+                mapping-dir="/tmp/mx_mapping" 
+                db-options="dbOptions" 
+                data-column-family-options="data-column-family-options"/>
+                
+	<os-core:embedded-space id="space" name="space" >
+        <os-core:blob-store-data-policy	blob-store-handler="myBlobStore"
+          persistent="true" 
+          cache-entries-percentage="20" />
+    </os-core:embedded-space>
+    
+       
+     <os-core:distributed-tx-manager id="transactionManager"/>
+     
+     <os-events:annotation-support/>
+	 <os-core:giga-space id="gigaSpace" space="space" tx-manager="transactionManager"/>
+
+</beans>
+     
